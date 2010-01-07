@@ -24,6 +24,7 @@
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
+#include <../../../drivers/usb/function/usb_function.h>
 #include <linux/usb/mass_storage_function.h>
 #include <linux/android_pmem.h>
 #include <linux/synaptics_i2c_rmi.h>
@@ -65,37 +66,113 @@ extern int microp_headset_has_mic(void);
 static void config_gpio_table(uint32_t *table, int len);
 
 static char *mahimahi_usb_functions[] = {
+#if defined(CONFIG_USB_FUNCTION_RNDIS_WCEIS)
+	/* ether *MUST* be first for Windows to detect it using Compatible IDs */
+	"ether",
+#endif
 	"usb_mass_storage",
 	"adb",
+#if defined(CONFIG_USB_FUNCTION_FSYNC)
+	"fsync",
+#endif
 #if defined(CONFIG_USB_FUNCTION_DIAG)
 	"diag",
 #endif
 #if defined(CONFIG_USB_FUNCTION_SERIAL)
 	"fserial",
 #endif
+#if defined(CONFIG_USB_FUNCTION_PROJECTOR)
+	"projector",
+#endif
+#if defined(CONFIG_USB_FUNCTION_MTP_TUNNEL)
+	"mtp_tunnel",
+#endif
+#if defined(CONFIG_USB_FUNCTION_ETHER) && !defined(CONFIG_USB_FUNCTION_RNDIS_WCEIS)
+	"ether",
+#endif
 };
 
+/* The first product_id with all the functions required for the current setup
+ * will be used, so be careful about your ordering.
+ */
 static struct msm_hsusb_product mahimahi_usb_products[] = {
 	{
 		.product_id     = 0x4e11,
-		.functions      = 0x00000001, /* "usb_mass_storage" only */
+		.functions	= BIT(USB_FUNCTION_MASS_STORAGE_NUM),
 	},
 	{
 		.product_id     = 0x4e12,
-		.functions      = 0x00000003, /* "usb_mass_storage" and "adb" */
+		.functions	= BIT(USB_FUNCTION_MASS_STORAGE_NUM)
+				| BIT(USB_FUNCTION_ADB_NUM)
 	},
+#if defined(CONFIG_USB_FUNCTION_FSERIAL)
 	{
-		.product_id     = 0x4e17,
-		.functions      = 0x00000007, /* ums, usb, diag */
+		.product_id	= 0x4e13,
+		.functions	= BIT(USB_FUNCTION_MASS_STORAGE_NUM)
+				| BIT(USB_FUNCTION_FSERIAL_NUM)
 	},
+#endif
+#if defined(CONFIG_USB_FUNCTION_PROJECTOR)
 	{
-		.product_id     = 0x4e14,
-		.functions      = 0x0000000b, /* ums, adb, fserial */
+		.product_id = 0x4e15,
+		.functions	= BIT(USB_FUNCTION_MASS_STORAGE_NUM)
+				| BIT(USB_FUNCTION_PROJECTOR_NUM)
 	},
+#endif
+#if defined(CONFIG_USB_FUNCTION_DIAG)
+	{
+		.product_id = 0x4e18,
+		.functions	= BIT(USB_FUNCTION_MASS_STORAGE_NUM)
+				| BIT(USB_FUNCTION_DIAG_NUM)
+	},
+#endif
+#if defined(CONFIG_USB_FUNCTION_FSERIAL) && defined(CONFIG_USB_FUNCTION_ADB)
+	{
+		.product_id	= 0x4e14,
+		.functions	= BIT(USB_FUNCTION_MASS_STORAGE_NUM)
+				| BIT(USB_FUNCTION_ADB_NUM)
+				| BIT(USB_FUNCTION_FSERIAL_NUM)
+	},
+#endif
+#if defined(CONFIG_USB_FUNCTION_PROJECTOR) && defined(CONFIG_USB_FUNCTION_ADB)
+	{
+		.product_id = 0x4e16,
+		.functions	= BIT(USB_FUNCTION_MASS_STORAGE_NUM)
+				| BIT(USB_FUNCTION_ADB_NUM)
+				| BIT(USB_FUNCTION_PROJECTOR_NUM)
+	},
+#endif
+#if defined(CONFIG_USB_FUNCTION_DIAG) && defined(CONFIG_USB_FUNCTION_ADB)
+	{
+		.product_id	= 0x4e17,
+		.functions	= BIT(USB_FUNCTION_MASS_STORAGE_NUM)
+				| BIT(USB_FUNCTION_ADB_NUM)
+				| BIT(USB_FUNCTION_DIAG_NUM)
+	},
+#endif
+#if defined(CONFIG_USB_FUNCTION_DIAG) && defined(CONFIG_USB_FUNCTION_ADB) && defined(CONFIG_USB_FSERIAL)
 	{
 		.product_id     = 0x4e19,
-		.functions      = 0x0000000f, /* ums, adb, diag, fserial */
+		.functions	= BIT(USB_FUNCTION_MASS_STORAGE_NUM)
+				| BIT(USB_FUNCTION_ADB_NUM)
+				| BIT(USB_FUNCTION_DIAG_NUM)
+				| BIT(USB_FUNCTION_FSERIAL_NUM)
 	},
+#endif
+#if defined(CONFIG_USB_FUNCTION_ETHER)
+	{
+		.product_id     = 0x0FFE,
+		.functions	= BIT(USB_FUNCTION_INTERNET_SHARING_NUM)
+	},
+#endif
+#if defined(CONFIG_USB_FUNCTION_ETHER) && defined(CONFIG_USB_FUNCTION_RNDIS_WCEIS)
+	{
+		.product_id     = 0x0FFE,
+		.functions	= BIT(USB_FUNCTION_MASS_STORAGE_NUM)
+				| BIT(USB_FUNCTION_ADB_NUM)
+				| BIT(USB_FUNCTION_INTERNET_SHARING_NUM)
+	},
+#endif
 };
 
 static int mahimahi_phy_init_seq[] = {
