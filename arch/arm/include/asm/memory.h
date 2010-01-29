@@ -44,7 +44,13 @@
  * The module space lives between the addresses given by TASK_SIZE
  * and PAGE_OFFSET - it must be within 32MB of the kernel text.
  */
+#ifndef CONFIG_THUMB2_KERNEL
 #define MODULES_VADDR		(PAGE_OFFSET - 16*1024*1024)
+#else
+/* smaller range for Thumb-2 symbols relocation (2^24)*/
+#define MODULES_VADDR		(PAGE_OFFSET - 8*1024*1024)
+#endif
+
 #if TASK_SIZE > MODULES_VADDR
 #error Top of user space clashes with start of module space
 #endif
@@ -188,7 +194,8 @@ static inline void *phys_to_virt(unsigned long x)
 #ifndef __virt_to_bus
 #define __virt_to_bus	__virt_to_phys
 #define __bus_to_virt	__phys_to_virt
-#define __pfn_to_bus(x)	((x) << PAGE_SHIFT)
+#define __pfn_to_bus(x)	__pfn_to_phys(x)
+#define __bus_to_pfn(x)	__phys_to_pfn(x)
 #endif
 
 static inline __deprecated unsigned long virt_to_bus(void *x)
